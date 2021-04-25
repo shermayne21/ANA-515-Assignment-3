@@ -1,0 +1,94 @@
+---
+title: "ANA515_Assignment3"
+author: "Sher Mayne"
+date: "4/15/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+#Download packages
+```{r}
+library(readr)
+library(tidyverse)
+library(knitr)
+```
+
+#Import data file
+```{r}
+stormevents97<-read.csv("StormEvents_details-ftp_v1.0_d1997_c20190920.csv")
+```
+
+#Limit dataframe
+```{r}
+colnames(stormevents97)
+lstormevents97<-stormevents97[c(1:10,13:16,18,20,27,45:48)]
+head(lstormevents97, 5)
+```
+
+#Convert date-time 
+```{r,output.lines=5}
+library(lubridate)
+mutate(lstormevents97, BEGIN_DATE_TIME = dmy_hms(BEGIN_DATE_TIME),        END_DATE_TIME = dmy_hms(END_DATE_TIME))
+head(lstormevents97,5)
+```
+
+#Change state and county names to title case
+```{r}
+lstormevents97<-lstormevents97 %>%
+  mutate(STATE=str_to_title(STATE)) %>%
+  mutate(CZ_NAME=str_to_title(CZ_NAME))
+head(lstormevents97, 5)
+```
+
+#Limit county type, and remove column
+```{r}
+lstormevents97<-lstormevents97 %>%
+  filter(CZ_TYPE == "C") %>%
+  select(-CZ_TYPE)
+head(lstormevents97, 5)
+```
+
+#Combine state and county FIPS and include a 0 in the front
+```{r}
+library(stringr)
+library(tidyr)
+
+lstormevents97$newSFIPS<-str_pad(lstormevents97$STATE_FIPS, width=3, side="left", pad="0")
+lstormevents97$newCZFIPS<-str_pad(lstormevents97$CZ_FIPS, width=2, side="left", pad="0")
+lstormevents97<- unite(lstormevents97, "FIPS", c("newSFIPS","newCZFIPS"))
+head(lstormevents97, 5)
+```
+
+#Change all column names to lowercase
+```{r}
+library(dplyr)
+
+lstormevents97<-rename_all(lstormevents97,tolower)
+head(lstormevents97, 5)
+```
+
+#State info
+```{r}
+data("state")
+us_state_info<-data.frame(state=state.name, region=state.region, area=state.area)
+head(us_state_info,5)
+```
+
+#Freq of events per state, and merge with state info
+```{r}
+state_freq<-data.frame(table(lstormevents97$state))
+statefreq<-rename(state_freq, c("state"="Var1"))
+statefreq$state<- str_to_title(statefreq$state)
+merged <- merge(x=statefreq,y=us_state_info,by.x="state",by.y="state")
+```
+
+#Create plot
+```{r}
+library(ggplot2)
+
+storm_plot <- ggplot(merged, aes(x=area, y=Freq)) + geom_point(aes(color=region)) + labs(x="Land area (square miles)", y="# of storm events in 1997")
+storm_plot
+```
+
+
